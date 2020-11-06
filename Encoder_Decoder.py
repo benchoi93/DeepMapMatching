@@ -48,9 +48,9 @@ Decoder_emb_size = 256
 Decoder_hidden_size = 512
 Decoder_output = 231
 Decoder_num_layer = 1
+Decoder_in_feature = 1
 
 # initialize dataset
-
 
 raw_input = datacombination("data/GPS/*.npy")
 raw_target = np.load(args.label_data)
@@ -112,12 +112,22 @@ test_len = test_len.sum(axis=1)
 
 # change to tensor
 train_input = torch.Tensor(train_input)
-train_target = torch.LongTensor(train_target)
+
+# train_target is longtensor for embedding
+#train_target = torch.LongTensor(train_target)
+#train_target = train_target.squeeze()
+
+# train_target is Tensor for embed_fc
+
+train_target = torch.Tensor(train_target)
 train_target = train_target.squeeze()
 train_len = torch.LongTensor(train_len)
 
+
 test_input = torch.Tensor(test_input)
-test_target = torch.LongTensor(test_target)
+# test_target is LongTensor for embeeding
+#test_target = torch.LongTensor(test_target)
+test_target = torch.Tensor(test_target)
 test_target = test_target.squeeze()
 test_len = torch.LongTensor(test_len)
 
@@ -126,28 +136,20 @@ test_len = torch.LongTensor(test_len)
 encoder = EncoderRNN(Encoder_in_feature, Encoder_hidden_size_1,
                      Encoder_hidden_size_2, Encoder_num_layer)
 decoder = DecoderRNN(Decoder_emb_size, Decoder_hidden_size,
-                     Decoder_output, Decoder_num_layer)
+                     Decoder_output, Decoder_num_layer, Decoder_in_feature)
 model = Seq2Seq(encoder, decoder, device)
 
 # set opimizer adn criterioin
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, eps=1e-10)
 criterion = nn.CrossEntropyLoss(ignore_index=0)
 
-# train_len = train_len.cuda(0)
-# test_input = test_input.cuda(0)
-# test_target = test_target.cuda(0)
-# test_len = test_len.cuda(0)
 
-
-epoch_loss = 0
-train_input = train_input[0:5000]
-train_target = train_target[0:5000]
-train_len = train_len[0:5000]
 #train_len, idx = torch.sort(train_len, descending=True)
 #train_input = train_input[idx]
 #train_target = train_target[idx]
 # train_target = train_target[train_target[:] != 0].reshape(
 # train_target.shape[0], train_target.shape[1]-1)
+
 if device.type == 'cuda':
     model = model.cuda(0)
     train_input = train_input.cuda(0)
@@ -159,6 +161,7 @@ if device.type == 'cuda':
 
 
 # %%
+#epoch_loss = 0
 
 data_batch = train_input.size(0)
 for i in range(10000):
@@ -202,6 +205,7 @@ for i in range(10000):
         acc = torch.sum(torch.argmax(output, 1) == sample_train_target_1)
         acc_result.append(acc.item())
         loss_result.append(loss.item())
+
     ACC = sum(acc_result)/(train_target.size(0)
                            * (train_target.size(1)-1)) * 100
     Loss = sum(loss_result)/len(loss_result)

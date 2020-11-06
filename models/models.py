@@ -27,13 +27,12 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, emb_size, hidden_size, output_size, num_layer):
+    def __init__(self, emb_size, hidden_size, output_size, num_layer, in_feature):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         #self.in_feature = in_feature
-        #self.embed_fc = torch.nn.Linear(in_feature, emb_size)
-
-        self.embedding = nn.Embedding(output_size, emb_size, padding_idx=0)
+        self.embed_fc = torch.nn.Linear(in_feature, emb_size)
+        #self.embedding = nn.Embedding(output_size, emb_size, padding_idx=0)
         self.rnn = nn.LSTM(emb_size, hidden_size, num_layer)
         self.fc1 = nn.Linear(hidden_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -43,9 +42,10 @@ class DecoderRNN(nn.Module):
         self.activation = torch.nn.Sigmoid()
 
     def forward(self, x, hidden, cell):
-        x = x.unsqueeze(0)
-        #x = self.embed_fc(x)
-        x = self.embedding(x)
+        #x = x.unsqueeze(0)
+        #x = self.embedding(x)
+        x = x.unsqueeze(0).T.unsqueeze(0).type(torch.Tensor).cuda(0)
+        x = self.embed_fc(x)
         output, (hidden, cell) = self.rnn(x, (hidden, cell))
         output = output.squeeze(0)
         output = self.activation(self.fc1(output))
@@ -94,13 +94,14 @@ class Seq2Seq(nn.Module):
 
             outputs[t] = output
 
-            if (output.sum(1) == 0).sum() > 0:
-                print(1)
+            # if (output.sum(1) == 0).sum() > 0:
+            #     print(1)
             # decide if we are going to use teacher forcing or not
             # teacher_force = random.random()<teacher_force_ratio
 
             # get the highest predictd token from output
             input = output.argmax(1)
+            print(input)
 
         return outputs
 # %%
