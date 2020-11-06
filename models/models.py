@@ -49,7 +49,7 @@ class DecoderRNN(nn.Module):
         output, (hidden, cell) = self.rnn(x, (hidden, cell))
         output = output.squeeze(0)
         output = self.activation(self.fc1(output))
-        output = self.activation(self.fc2(output))
+        #output = self.activation(self.fc2(output))
         output = self.fc3(output)
 
         return output, hidden, cell

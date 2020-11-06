@@ -162,16 +162,20 @@ if device.type == 'cuda':
     train_input = train_input.cuda(0)
     train_target = train_target.cuda(0)
     train_len = train_len.cuda(0)
+    test_input = test_input.cuda(0)
+    test_target = test_target.cuda(0)
+    test_len = test_len.cuda(0)
 
 
 # %%
+
 data_batch = train_input.size(0)
 for i in range(10000):
 
-    randidx = torch.randperm(train_input.shape[0])
-    train_input = train_input[randidx]
-    train_len = train_len[randidx]
-    train_target = train_target[randidx]
+    # randidx = torch.randperm(train_input.shape[0])
+    # train_input = train_input[randidx]
+    # train_len = train_len[randidx]
+    # train_target = train_target[randidx]
 
     num_batch_iteration = int(data_batch/args.batch_size)
     loss_result = []
@@ -222,14 +226,7 @@ for i in range(10000):
 # %%
 PATH = "C:/Users/iziz56/Desktop/DeepMapMatching/pytorch_model/trained_model_2.pth"
 torch.save(model.state_dict(), PATH)
-# # %%
-# test_len, idx = torch.sort(test_len, descending=True)
-idx = list(range(0, 3000))
-test_input = test_input[idx]
-train_len = train_len[idx]
-test_target = test_target[idx]
-# # test_target = test_target[test_target[:] != 229].reshape(
-# # test_target.shape[0], test_target.shape[1]-1)
+
 
 output = model(test_input, test_target, test_len)
 
@@ -243,10 +240,3 @@ test_target_1 = test_target.T[1:].T.reshape(-1)
 acc = torch.sum(torch.argmax(output, 1) == test_target_1)
 acc = float(acc) / (test_target.size(0) * (test_target.size(1)-1)) * 100
 # print(acc)
-
-
-# %%
-
-# %%
-
-# %%
