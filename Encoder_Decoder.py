@@ -52,16 +52,7 @@ Decoder_num_layer = 1
 # initialize dataset
 
 
-def datacombination1(path):
-    Link = []
-    for f in glob.glob(path, recursive=True):
-        temp = np.load(f)
-        Link.append(temp)
-    Link = np.concatenate(Link)
-    return Link
-
-
-raw_input = datacombination1("data/GPS/*.npy")
+raw_input = datacombination("data/GPS/*.npy")
 raw_target = np.load(args.label_data)
 
 raw_input = raw_input[0:100]
