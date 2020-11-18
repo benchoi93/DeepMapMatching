@@ -238,6 +238,10 @@ for i in range(10000):
         loss = criterion(output, sample_train_target_1)
 
         optimizer.zero_grad()
+        optimizer.zero_grad()
+        optimizer.zero_grad()
+        optimizer.zero_grad()
+        optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
