@@ -65,3 +65,23 @@ def shortencode(raw_target):
     temp_input = temp_input.astype(int)
 
     return temp_input
+
+
+def addpadding(train, padding):
+
+    temp_input = np.array([])
+    for i in range(len(train)):  # len(train_input)):
+        temp_length = train[i].shape[0]
+        temp_repeat = train[i].shape[1]
+        temp = np.insert(train[i], temp_length,
+                         np.repeat(padding, temp_repeat))
+        temp_input = np.append(temp_input, temp)
+    temp_input = temp_input.reshape(len(train), temp_length+1, temp_repeat)
+    return(temp_input)
+
+
+def epoch_time(start_time, end_time):
+    elapsed_time = end_time - start_time
+    elapsed_mins = int(elapsed_time / 60)
+    elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
+    return elapsed_mins, elapsed_secs

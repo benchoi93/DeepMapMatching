@@ -40,15 +40,12 @@ parser.add_argument('--batch_size', default=10, type=int)
 args = parser.parse_args()
 
 Encoder_in_feature = 2
-Encoder_hidden_size_1 = 256
-Encoder_hidden_size_2 = 512
-Encoder_num_layer = 1
+Encoder_emb_dim = 256
+Encoder_hid_dim = 512
 
-Decoder_emb_size = 256
-Decoder_hidden_size = 512
-Decoder_output = 231
-Decoder_num_layer = 1
-Decoder_in_feature = 1
+Decoder_emb_dim = 256
+Decoder_hidden_dim = 512
+Decoder_output_dim = 231
 
 # initialize dataset
 
@@ -114,29 +111,29 @@ test_len = test_len.sum(axis=1)
 train_input = torch.Tensor(train_input)
 
 # train_target is longtensor for embedding
-#train_target = torch.LongTensor(train_target)
-#train_target = train_target.squeeze()
+train_target = torch.LongTensor(train_target)
+train_target = train_target.squeeze()
 
 # train_target is Tensor for embed_fc
 
-train_target = torch.Tensor(train_target)
-train_target = train_target.squeeze()
+# train_target = torch.Tensor(train_target)
+# train_target = train_target.squeeze()
 train_len = torch.LongTensor(train_len)
 
 
 test_input = torch.Tensor(test_input)
 # test_target is LongTensor for embeeding
-#test_target = torch.LongTensor(test_target)
-test_target = torch.Tensor(test_target)
+test_target = torch.LongTensor(test_target)
+# test_target = torch.Tensor(test_target)
 test_target = test_target.squeeze()
 test_len = torch.LongTensor(test_len)
 
 
 # initialize deep networks
-encoder = EncoderRNN(Encoder_in_feature, Encoder_hidden_size_1,
-                     Encoder_hidden_size_2, Encoder_num_layer)
-decoder = DecoderRNN(Decoder_emb_size, Decoder_hidden_size,
-                     Decoder_output, Decoder_num_layer, Decoder_in_feature)
+encoder = EncoderRNN(Encoder_in_feature, Encoder_emb_dim,
+                     Encoder_hid_dim)
+decoder = DecoderRNN(Decoder_output_dim, Decoder_emb_dim,
+                     Decoder_hidden_dim)
 model = Seq2Seq(encoder, decoder, device)
 
 # set opimizer adn criterioin
@@ -185,7 +182,7 @@ for i in range(10000):
         sample_train_target = train_target[(j * args.batch_size):(temp_j)]
 
         output = model(sample_train_input,
-                       sample_train_target, sample_train_len)
+                       sample_train_target)
 
         output_dim = output.shape[-1]
         output = output[1:].reshape(
@@ -235,3 +232,5 @@ test_target_1 = test_target.T[1:].T.reshape(-1)
 acc = torch.sum(torch.argmax(output, 1) == test_target_1)
 acc = float(acc) / (test_target.size(0) * (test_target.size(1)-1)) * 100
 # print(acc)
+
+# %%
