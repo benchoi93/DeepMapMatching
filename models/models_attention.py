@@ -25,7 +25,7 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input, input_len):
 
-        #input = self.dropout(self.embed_fc(input))
+        # input = self.dropout(self.embed_fc(input))
         embedded = self.dropout(self.embed_fc(input))
         embedded = self.activate_embed(embedded)
 
@@ -35,17 +35,17 @@ class EncoderRNN(nn.Module):
 
         encoder_states, _ = pad_packed_sequence(packed_outputs)
 
-        ### encoder_states = [seq_len, batch, hidden_size*num_direction]
+        # encoder_states = [seq_len, batch, hidden_size*num_direction]
         # hidden, cell = [n layers * num_directions, batch, hidden_size]
 
-        #x, _ = pad_packed_sequence(encoder_states)
+        # x, _ = pad_packed_sequence(encoder_states)
 
         hidden = torch.tanh(self.fc_hidden(
             torch.cat((hidden[0:1], hidden[1:2]), dim=2)))
         cell = torch.tanh(self.fc_hidden(
             torch.cat((cell[0:1], cell[1:2]), dim=2)))
 
-        #x,_ = pad_packed_sequence(packed_x,batch_first=True)
+        # x,_ = pad_packed_sequence(packed_x,batch_first=True)
         return encoder_states, hidden, cell
 
 
@@ -74,7 +74,7 @@ class DecoderRNN(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-        #self.fc_hidden = nn.Linear(1, sequence_length)
+        # self.fc_hidden = nn.Linear(1, sequence_length)
 
        # self.dropout = nn.Dropout(p)
 
@@ -89,15 +89,15 @@ class DecoderRNN(nn.Module):
 
         # input = [1, batch size]
 
-        #embedding = self.dropout(self.embedding(input))
+        # embedding = self.dropout(self.embedding(input))
         embedding = self.dropout(self.embedding(input))
 
         # embedded = [1, batch size, embbeding_size]
 
         # to meet the same dimension between encoder_states and hidden, repeat function is used
 
-        ### encoder_states [seq_len, batch_size, hidden*2]
-        ### hidden = [1, batch_size, hidden_size]
+        # encoder_states [seq_len, batch_size, hidden*2]
+        # hidden = [1, batch_size, hidden_size]
 
         # hidden_1 = hidden.permute(2, 1, 0)
         # hidden_1 = self.fc_hidden(hidden_1)
@@ -106,7 +106,7 @@ class DecoderRNN(nn.Module):
         sequence_length = encoder_states.shape[0]
         h_reshaped = hidden.repeat(sequence_length, 1, 1)
 
-        ### h_reshaped = [ seq_len, batch_size, hidden_size]
+        # h_reshaped = [ seq_len, batch_size, hidden_size]
 
         # energy = self.Sigmoid(self.energy(
         #     torch.cat((h_reshaped, encoder_states), dim=2)))
@@ -116,9 +116,9 @@ class DecoderRNN(nn.Module):
 
         attention = self.v(energy).squeeze(2)
 
-        #attention = [squ_length, batch]
+        # attention = [seq_length, batch]
 
-        attention = attention.masked_fill(mask == 0, -1e10)
+        # attention = attention.masked_fill(mask == 0, -1e10)
 
         attention_weight = self.softmax(attention)
         # attention_weight = [seq_length,N]
@@ -157,11 +157,11 @@ class DecoderRNN(nn.Module):
         prediction = self.fc_out(
             torch.cat((output, context_vector, embedded), dim=1))
 
-        #prediction = self.fc_out(output)
+        # prediction = self.fc_out(output)
 
-        # prediction = [batch size, output dim]s
+        # prediction = [batch size, output dim]
 
-        return prediction, hidden, cell
+        return prediction, hidden, cell, attention_weight.squeeze(1)
 
 
 class Seq2Seq(nn.Module):
@@ -184,13 +184,17 @@ class Seq2Seq(nn.Module):
         target_len = target.shape[0]
         target_output_size = self.decoder.output_size
 
+        # last hidden state of the encoder is used as the initial hidden state of the decoder
+
+        encoder_states, hidden, cell = self.encoder(train, train_len)
+
         # tensor to store decoder output
         outputs = torch.zeros(target_len, batch_size,
                               target_output_size).to(self.device)
 
-        # last hidden state of the encoder is used as the initial hidden state of the decoder
+        sequence_length = encoder_states.shape[0]
 
-        encoder_states, hidden, cell = self.encoder(train, train_len)
+        attentions = torch.zeros(target_len, batch_size, sequence_length)
 
         # first input to the decoder  is the  <SOS> tokens In this cas
 
@@ -200,12 +204,13 @@ class Seq2Seq(nn.Module):
         for t in range(1, target_len):
             # insert input token embedding, previous hidden and previous cell states
             # receive output tensor (predictions) and new hidden and cell states
-            output, hidden, cell = self.decoder(
+            output, hidden, cell, attention_weight = self.decoder(
                 input, encoder_states, hidden, cell, mask)
 
             # place outputs in a tensor holding it for each token
 
             outputs[t] = output
+            attentions[t] = attention_weight
 
             # if (output.sum(1) == 0).sum() > 0:
             # decide if we are going to use teacher forcing or not
@@ -221,8 +226,4 @@ class Seq2Seq(nn.Module):
 
             # input = target[:, t] if teacher_force else top1
 
-        return outputs
-
-# %%
-
-# %%
+        return (outputs, attentions)

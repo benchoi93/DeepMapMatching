@@ -1,6 +1,9 @@
 
 
 # %%
+# from Encoder_Decoder_Attention import Decoder_num_layers, Encoder_num_layers
+# from Encoder_Decoder_Attention import Decoder_output_size
+import sys
 from numpy.lib.function_base import average
 from tensorboardX import SummaryWriter
 import tensorboardX
@@ -18,8 +21,9 @@ import argparse
 import time
 import glob
 
+torch.cuda.empty_cache()
+
 # temporary code for debugging
-import sys
 sys.argv = ['']
 # temporary code for debugging
 
@@ -27,54 +31,53 @@ model_summary_writer = SummaryWriter(
     'log/encoder_decoder_{}'.format(time.time()))
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--gps-data', default="data/GPS/GPS_0.npy", type=str)
-#parser.add_argument('--gps-data', default="GPS.npy", type=str)
-#parser.add_argument('--label-data', default="data/Label/Label_0.npy", type=str)
-parser.add_argument('--label-data', default="Label_1.npy", type=str)
+# parser.add_argument('--gps-data', default="data/GPS/GPS_0.npy", type=str)
+# parser.add_argument('--gps-data', default="GPS.npy", type=str)
+parser.add_argument('--gps_data', default="GPSmax7_new_1.npy", type=str)
+parser.add_argument('--label_data', default="Label_smax7_new_1.npy", type=str)
 parser.add_argument('--train-ratio', default=0.7, type=float)
 parser.add_argument('--learning-rate', default=0.007, type=float)
 # parser.add_argument('--training_num', default=100, type=int)
-parser.add_argument('--batch_size', default=10, type=int)
+parser.add_argument('--batch_size', default=1000, type=int)
 
 
 args = parser.parse_args()
 
 Encoder_in_feature = 2
-Encoder_emb_dim = 256
-Encoder_hid_dim = 512
+Encoder_emb_size = 256
+Encoder_hid_size = 512
+Encoder_num_layers = 1
 
-Decoder_emb_dim = 256
-Decoder_hidden_dim = 512
-Decoder_output_dim = 231
-
+Decoder_emb_size = 256
+Decoder_hidden_size = 512
+Decoder_output_size = 231
+Decoder_num_layers = 1
 # initialize dataset
 
-raw_input = datacombination("data/GPS/*.npy")
+# raw_input = datacombination("data/GPS/*.npy")
+raw_input = np.load(args.gps_data)
 raw_target = np.load(args.label_data)
 
-raw_input = raw_input[0:100]
-raw_target = raw_target[0:100]
+raw_input = raw_input[0:2000]
+raw_target = raw_target[0:2000]
+raw_target[raw_target < 0] = 0
 
 # %%
-# collect unique value from target labeling data
-#raw_target = shortencode(raw_target)
 
 # add start and end token in the target data
-#raw_input = addEOS(raw_input, EOS=230)
-
 
 # delete padding data
-raw_target = raw_target[:, 0:raw_target.shape[1]-1]
+# raw_target = raw_target[:, 0:raw_target.shape[1]-1]
 
 # device setting
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # normalization
-x_min = np.min(raw_input[:, :, 0][np.where(raw_input[:, :, 0] != -1)])
-x_max = np.max(raw_input[:, :, 0][np.where(raw_input[:, :, 0] != -1)])
+x_min = 127.01691
+x_max = 127.07
 
-y_min = np.min(raw_input[:, :, 1][np.where(raw_input[:, :, 1] != -1)])
-y_max = np.max(raw_input[:, :, 1][np.where(raw_input[:, :, 1] != -1)])
+y_min = 37.48184
+y_max = 37.532416
 
 
 def apply_normalize_x(x): return (x-x_min)/(x_max-x_min) if x != -1 else -1
@@ -130,10 +133,10 @@ test_len = torch.LongTensor(test_len)
 
 
 # initialize deep networks
-encoder = EncoderRNN(Encoder_in_feature, Encoder_emb_dim,
-                     Encoder_hid_dim)
-decoder = DecoderRNN(Decoder_output_dim, Decoder_emb_dim,
-                     Decoder_hidden_dim)
+encoder = EncoderRNN(Encoder_in_feature, Encoder_emb_size,
+                     Encoder_hid_size, Encoder_num_layers)
+decoder = DecoderRNN(Decoder_emb_size,
+                     Decoder_hidden_size, Decoder_output_size, Decoder_num_layers)
 model = Seq2Seq(encoder, decoder, device)
 
 # set opimizer adn criterioin
@@ -141,32 +144,32 @@ optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, eps=1e-10)
 criterion = nn.CrossEntropyLoss(ignore_index=0)
 
 
-#train_len, idx = torch.sort(train_len, descending=True)
-#train_input = train_input[idx]
-#train_target = train_target[idx]
+# train_len, idx = torch.sort(train_len, descending=True)
+# train_input = train_input[idx]
+# train_target = train_target[idx]
 # train_target = train_target[train_target[:] != 0].reshape(
 # train_target.shape[0], train_target.shape[1]-1)
 
 if device.type == 'cuda':
     model = model.cuda(0)
-    train_input = train_input.cuda(0)
-    train_target = train_target.cuda(0)
-    train_len = train_len.cuda(0)
-    test_input = test_input.cuda(0)
-    test_target = test_target.cuda(0)
-    test_len = test_len.cuda(0)
+    # train_input = train_input.cuda(0)
+    # train_target = train_target.cuda(0)
+    # train_len = train_len.cuda(0)
+    # test_input = test_input.cuda(0)
+    # test_target = test_target.cuda(0)
+    # test_len = test_len.cuda(0)
 
 
 # %%
-#epoch_loss = 0
+# epoch_loss = 0
 
 data_batch = train_input.size(0)
 for i in range(10000):
 
-    # randidx = torch.randperm(train_input.shape[0])
-    # train_input = train_input[randidx]
-    # train_len = train_len[randidx]
-    # train_target = train_target[randidx]
+    randidx = torch.randperm(train_input.shape[0])
+    train_input = train_input[randidx]
+    train_len = train_len[randidx]
+    train_target = train_target[randidx]
 
     num_batch_iteration = int(data_batch/args.batch_size)
     loss_result = []
@@ -174,63 +177,79 @@ for i in range(10000):
 
     for j in range(num_batch_iteration):
 
-        temp_j = (j+1)*args.batch_size
+        temp_j = (j+1)*batch_size
 
-        sample_train_input = train_input[(j * args.batch_size):(temp_j)]
+        sample_train_input = train_input[(j * batch_size):(temp_j)]
+        sample_train_target = train_target[(j * batch_size):(temp_j)]
 
-        sample_train_len = train_len[(j * args.batch_size):(temp_j)]
-        sample_train_target = train_target[(j * args.batch_size):(temp_j)]
+        sample_train_len = train_len[(j * batch_size):(temp_j)]
 
-        output = model(sample_train_input,
-                       sample_train_target)
+        sample_train_len, idx = torch.sort(sample_train_len, descending=True)
 
-        output_dim = output.shape[-1]
-        output = output[1:].reshape(
-            (output[1:].size(1), output[1:].size(0), output[1:].size(2)))
-        output = output.reshape(-1, output_dim)
-        sample_train_target_1 = sample_train_target.T[1:].T.reshape(-1)
+        sample_train_input = sample_train_input[idx][:,
+                                                     0:sample_train_len[0], :]
+        sample_train_target = sample_train_target[idx]
 
-        #output = output.view((output.size(0),output.size(2),output.size(1)))
+        sample_train_input = sample_train_input.permute(1, 0, 2).to(device)
+        sample_train_target = sample_train_target.permute(1, 0).to(device
+
+        output=model(sample_train_input,
+                       sample_train_target, sample_train_len)
+
+        # output = [trg len,batch size, output dim]
+
+        output_dim=output.shape[-1]
+        output=output[1:].reshape(-1, output_dim)
+        trg=sample_train_target[1:].reshape(-1)
+
+        # output = output.view((output.size(0),output.size(2),output.size(1)))
         # train_target = train_target.T
 
-        loss = criterion(output, sample_train_target_1)
+        loss=criterion(output, trg)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        acc = torch.sum(torch.argmax(output, 1) == sample_train_target_1)
-        acc_result.append(acc.item())
+        acc=((output.argmax(1) == trg).sum()).item()/trg.size(0)
+        acc_result.append(acc)
         loss_result.append(loss.item())
 
-    ACC = sum(acc_result)/(train_target.size(0)
-                           * (train_target.size(1)-1)) * 100
-    Loss = sum(loss_result)/len(loss_result)
+    ACC=sum(acc_result)/len(acc_result) * 100
+    Loss=sum(loss_result)/len(loss_result)
 
-    #acc = float(acc) / (train_target.size(0) * (train_target.size(1)-1)) * 100
+    # acc = float(acc) / (train_target.size(0) * (train_target.size(1)-1)) * 100
 
-    #epoch_loss += loss.item()
+    # epoch_loss += loss.item()
     print("iteration : {} A-loss : {:.5f} accuracy : {:.4f}".format(
         i+1, Loss, ACC))
-    model_summary_writer.add_scalar('loss', Loss, i+3000)
-    model_summary_writer.add_scalar('acc', ACC, i+3000)
+    model_summary_writer.add_scalar('loss', Loss, i)
+    model_summary_writer.add_scalar('acc', ACC, i)
 
 # %%
-PATH = "C:/Users/iziz56/Desktop/DeepMapMatching/pytorch_model/trained_model_2.pth"
-torch.save(model.state_dict(), PATH)
+# PATH = "C:/Users/iziz56/Desktop/DeepMapMatching/pytorch_model/trained_model_2.pth"
+# torch.save(model.state_dict(), PATH)
+# validation
+test_len, idx=torch.sort(test_len, descending=True)
+
+test_input=test_input[idx][:,
+                             0:test_len[0], :].permute(1, 0, 2)
+test_target=test_target[idx].permute(1, 0)
+
+test_input=test_input.to(device)
+test_target=test_target.to(device)
 
 
-output = model(test_input, test_target, test_len)
+output=model(test_input, test_target, test_len)
+output_dim=output.shape[-1]
+output=output[1:].reshape(-1, output_dim)
+trg=test_target[1:].reshape(-1)
 
-output_dim = output.shape[-1]
-output = output[1:].reshape(
-    (output[1:].size(1), output[1:].size(0), output[1:].size(2)))
-output = output.reshape(-1, output_dim)
-test_target_1 = test_target.T[1:].T.reshape(-1)
+acc=((output.argmax(1) == trg).sum()).item()/trg.size(0) * 100
 
 
-acc = torch.sum(torch.argmax(output, 1) == test_target_1)
-acc = float(acc) / (test_target.size(0) * (test_target.size(1)-1)) * 100
+# acc = torch.sum(torch.argmax(output, 1) == test_target_1)
+# acc = float(acc) / (test_target.size(0) * (test_target.size(1)-1)) * 100
 # print(acc)
 
 # %%

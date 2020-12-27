@@ -1,5 +1,6 @@
 import numpy as np
 import glob
+import torch
 
 
 def addSOSEOS(train, SOS, EOS):
@@ -85,3 +86,33 @@ def epoch_time(start_time, end_time):
     elapsed_mins = int(elapsed_time / 60)
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
+
+
+def normalization(raw_input):
+    x_min = 127.015
+    x_max = 127.095
+
+    y_min = 37.47
+    y_max = 37.55
+
+    def apply_normalize_x(x): return (x-x_min)/(x_max-x_min) if x != -1 else -1
+    def apply_normalize_y(y): return (y-y_min)/(y_max-y_min) if y != -1 else -1
+
+    raw_input[:, :, 0] = np.vectorize(apply_normalize_x)(raw_input[:, :, 0])
+    raw_input[:, :, 1] = np.vectorize(apply_normalize_y)(raw_input[:, :, 1])
+    return raw_input
+
+
+def make_input_mask(input, input_pad, device):
+    input_mask = (input != input_pad).unsqueeze(1).unsqueeze(2)
+    # (N, 1, 1, input_len)
+    return input_mask.to(device)
+
+
+def make_trg_mask(trg, device):
+    N, trg_len = trg.shape
+    trg_mask = torch.tril(torch.ones((trg_len, trg_len))).expand(
+        N, 1, trg_len, trg_len
+    )
+
+    return trg_mask.to(device)
