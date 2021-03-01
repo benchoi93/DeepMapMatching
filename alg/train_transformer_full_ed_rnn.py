@@ -50,7 +50,6 @@ class TransformerfullEDTrain(object):
 
         for input, _, label_long, _ in self.data_manager.train_loader:
 
-            label_long = addSOSEOS(label_long, 229, 230)
             label_long_1 = torch.LongTensor(label_long).squeeze(2)
 
             label_1 = label_long_1[:, 1:].clone().reshape(-1).to(self.device)
@@ -100,7 +99,6 @@ class TransformerfullEDTrain(object):
         with torch.no_grad():
 
             for input, label, label_long, _ in self.data_manager.test_loader:
-                label_long = addSOSEOS(label_long, 229, 230)
                 label_long_1 = torch.LongTensor(label_long).squeeze(2)
 
                 label_1 = label_long_1[:, 1:].clone(

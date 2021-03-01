@@ -60,7 +60,7 @@ for epoch in range(args.iteration):
     # if test_loss < best_test_loss:
     #     best_test_loss = test_loss
     #     torch.save(trainer.model.state_dict(),
-    #                'pytorch_model/rnn/best_model1_1.pth')
+    #                'pytorch_model/many2one/best_model1_1.pth')
 
     print(f'Epoch: {epoch+1:02} | Time: {epoch_mins}m {epoch_secs}s')
     print(f'\tTrain Loss: {train_loss:.3f} | Train ACC: {train_acc*100:.4f}')

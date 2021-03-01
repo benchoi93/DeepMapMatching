@@ -1,5 +1,5 @@
 # %%
-from bertviz.bertviz import head_view
+from bertviz import head_view
 import argparse
 import sys
 

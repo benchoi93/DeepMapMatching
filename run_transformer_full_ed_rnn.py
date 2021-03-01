@@ -20,13 +20,13 @@ from alg.train_transformer_full_ed_rnn import TransformerfullEDTrain
 sys.argv = ['']
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    '--gps-data', default="data/GPSmax3_test_mix_1.npy", type=str)
+    '--gps-data', default="data/GPSmax5_test_mix_1.npy", type=str)
 parser.add_argument(
-    '--label_data', default="data/Label_smax3_test_mix_1.npy", type=str)
+    '--label_data', default="data/Label_smax5_test_mix_1.npy", type=str)
 parser.add_argument(
-    '--label_data_long', default="data/Labelmax3_test_mix_1.npy", type=str)
+    '--label_data_long', default="data/Labelmax5_test_mix_1.npy", type=str)
 parser.add_argument('--train-ratio', default=0.7, type=float)
-parser.add_argument('--batch-size', default=200, type=int)
+parser.add_argument('--batch-size', default=100, type=int)
 parser.add_argument('--iteration', default=200, type=int)
 parser.add_argument('--learning-rate', default=0.00015, type=float)
 parser.add_argument('--cuda', default=True, action="store_true")
@@ -70,7 +70,7 @@ for epoch in range(args.iteration):
     if test_loss < best_test_loss:
         best_test_loss = test_loss
         torch.save(trainer.model.state_dict(),
-                   'pytorch_model/transformer/transformer_long_2.pth')
+                   'pytorch_model/transformer/transformer_long_1.pth')
 
     print(f'Epoch: {epoch+1:02} | Time: {epoch_mins}m {epoch_secs}s')
     print(f'\tTrain Loss: {train_loss:.3f} | Train ACC: {train_acc*100:.4f}')
