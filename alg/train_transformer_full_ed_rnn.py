@@ -1,5 +1,5 @@
 # %%
-from src.util import addSOSEOS
+# from src.util import addSOSEOS
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -36,6 +36,7 @@ class TransformerfullEDTrain(object):
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=params["learning_rate"], eps=1e-10)
         self.criterion = nn.CrossEntropyLoss(ignore_index=0)
+        self.criterion2 = nn.CTCLoss(reduction='none', zero_infinity=True)
 
         self.model_summary_writer = SummaryWriter(
             'log/encoder_decoder_{}'.format(time.time()/60))
@@ -49,10 +50,13 @@ class TransformerfullEDTrain(object):
         loss_result = []
 
         for input, _, label_long, _ in self.data_manager.train_loader:
-
+            # break
             label_long_1 = torch.LongTensor(label_long).squeeze(2)
 
-            label_1 = label_long_1[:, 1:].clone().reshape(-1).to(self.device)
+            # label_long_1[label_long_1 == 229] = 0
+            # label_long_1[label_long_1 == 230] = 0
+            # label_long_1 = label_long_1[:, 1:-1]
+            # label_1 = label_long_1[:, 1:].clone().reshape(-1).to(self.device)
 
             # input = input[0:1]
             # label = label[0:1]
@@ -67,26 +71,40 @@ class TransformerfullEDTrain(object):
             # trg = label[:-1,:]
 
             # self = self.model
-            output, _, _, _ = self.model(input, label[:-1, :])
-#            plt.matshow(dec_attn_weight[0].to("cpu").detach().numpy())
+            output, _ = self.model(input, label)
+            output = torch.log_softmax(output, 2)
+            # input.shape
+            # output.shape
+            # label.shape
+            # plt.matshow(dec_attn_weight[0].to("cpu").detach().numpy())
+            # output = output.permute(1, 0, 2)
+            # label = label.permute(1, 0)
+            mask = (label != 0)
+            lengths = (label != 0).sum(0).long()
+            max_lengths = lengths.max()
+            # output_dim = output.shape[-1]
+            # output_1 = output.reshape(-1, output_dim)
+            # loss = self.criterion(output_1, label_1)
 
-            output = output.permute(1, 0, 2)
-            label = label.permute(1, 0)
-
-            output_dim = output.shape[-1]
-            output_1 = output.reshape(-1, output_dim)
-            loss = self.criterion(output_1, label_1)
+            loss = self.criterion2(output[:max_lengths, :, :],
+                                   label.permute(1, 0)[:, :max_lengths],
+                                   torch.full(size=(output.size(1),), fill_value=max_lengths, dtype=torch.long),
+                                   lengths)
             acc = self.get_accuracy(output, label)
 
             self.optimizer.zero_grad()
-            loss.backward()
+            loss.mean().backward()
             self.optimizer.step()
 
             acc_result.append(acc)
-            loss_result.append(loss.item())
+            loss_result.append(loss.mean().item())
 
         ACC = sum(acc_result)/len(acc_result)
         LOSS = sum(loss_result)/len(loss_result)
+
+        del input
+        del label
+        torch.cuda.empty_cache()
 
         return ACC, LOSS
 
@@ -97,12 +115,13 @@ class TransformerfullEDTrain(object):
         loss_result = []
 
         with torch.no_grad():
-
             for input, label, label_long, _ in self.data_manager.test_loader:
                 label_long_1 = torch.LongTensor(label_long).squeeze(2)
 
-                label_1 = label_long_1[:, 1:].clone(
-                ).reshape(-1).to(self.device)
+                # label_long_1[label_long_1 == 229] = 0
+                # label_long_1[label_long_1 == 230] = 0
+                # label_long_1 = label_long_1[:, 1:-1]
+                # label_1 = label_long_1[:, 1:].clone().reshape(-1).to(self.device)
 
                 # input = input[0:1]
                 # label = label[0:1]
@@ -113,34 +132,51 @@ class TransformerfullEDTrain(object):
                 input = input.to(self.device)
                 label = label.to(self.device)
 
-                output, enc_attn, dec_attn, _ = self.model(
-                    input, label[:-1, :])
-                # plt.matshow(dec_attn[0][2][1:].to("cpu").detach().numpy())
-                output = output.permute(1, 0, 2)
-                label = label.permute(1, 0)
+                # src = input
+                # trg = label[:-1,:]
 
-                output_dim = output.shape[-1]
-                output_1 = output.reshape(-1, output_dim)
-                loss = self.criterion(output_1, label_1)
+                # self = self.model
+                output, _ = self.model(input, label)
+                output = torch.log_softmax(output, 2)
+                # input.shape
+                # output.shape
+                # label.shape
+                # plt.matshow(dec_attn_weight[0].to("cpu").detach().numpy())
+                # output = output.permute(1, 0, 2)
+                # label = label.permute(1, 0)
+                mask = (label != 0)
+                lengths = (label != 0).sum(0).long()
+                max_lengths = lengths.max()
+                # output_dim = output.shape[-1]
+                # output_1 = output.reshape(-1, output_dim)
+                # loss = self.criterion(output_1, label_1)
+
+                loss = self.criterion2(output[:max_lengths, :, :],
+                                       label.permute(1, 0)[:, :max_lengths],
+                                       torch.full(size=(output.size(1),), fill_value=max_lengths, dtype=torch.long),
+                                       lengths)
                 acc = self.get_accuracy(output, label)
 
                 acc_result.append(acc)
-                loss_result.append(loss.item())
+                loss_result.append(loss.mean().item())
 
             ACC = sum(acc_result)/len(acc_result)
             LOSS = sum(loss_result)/len(loss_result)
+
+            del input
+            del label
+        torch.cuda.empty_cache()
 
         return ACC, LOSS
 
     def get_accuracy(self, output, label):
 
-        mask = (label[:, 1:] != self.params["Decoder_pad"]).to(self.device)
+        mask = (label != self.params["Decoder_pad"]).to(self.device)
         padding_count = (mask == self.params["Decoder_pad"]).sum().item()
         output_1 = output.argmax(2).masked_fill(
             mask == self.params["Decoder_pad"], 0)
 
-        correct = (output_1 == label[:, 1:].to(
-            self.device)).sum()-padding_count
+        correct = (output_1 == label.to(self.device)).sum()-padding_count
         total = output_1.size(0)*output_1.size(1)-padding_count
 
         acc = correct.item()/total
@@ -180,4 +216,12 @@ class TransformerfullEDTrain(object):
 # '
 
 # %%
+# %%
+
+
+# output.argmax(2)[:, 0]
+# (torch.softmax(output[63, 0, :], 0)*1000).long()
+# label[:, 0]
+
+
 # %%

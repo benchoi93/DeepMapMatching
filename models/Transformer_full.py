@@ -18,8 +18,10 @@ class Transformer(nn.Module):
         max_len,
     ):
         super(Transformer, self).__init__()
-        self.src_word_embedding = nn.Linear(src_vocab_size, embedding_size)
-        # self.activation_1 = nn.ReLU()
+        self.src_word_embedding1 = nn.Linear(src_vocab_size, embedding_size)
+        self.src_word_embedding2 = nn.Linear(embedding_size, embedding_size)
+        self.src_word_embedding3 = nn.Linear(embedding_size, embedding_size)
+        self.activation_1 = nn.ReLU()
         # self.activation_2 = nn.Sigmoid()
         # self.src_linear = nn.Linear(embedding_size, embedding_size)
         # self.trg_linear = nn.Linear(embedding_size, embedding_size)
@@ -41,7 +43,9 @@ class Transformer(nn.Module):
         self.decoder_layer = nn.TransformerDecoderLayer(
             embedding_size, num_heads, forward_expansion, dropout)
         # self.decoder_norm = nn.LayerNorm(embedding_size)
-        self.fc_out = nn.Linear(embedding_size, trg_vocab_size)
+        self.fc_out1 = nn.Linear(embedding_size, embedding_size)
+        self.fc_out2 = nn.Linear(embedding_size, embedding_size)
+        self.fc_out3 = nn.Linear(embedding_size, trg_vocab_size)
         self.dropout = nn.Dropout(dropout)
         self.src_pad_idx = src_pad_idx
 
@@ -72,7 +76,9 @@ class Transformer(nn.Module):
             .to(self.device)
         )
 
-        src_word = self.src_word_embedding(src)
+        src_word = self.activation_1(self.src_word_embedding1(src))
+        src_word = self.activation_1(self.src_word_embedding2(src_word))
+        src_word = self.activation_1(self.src_word_embedding3(src_word))
         # src_word = self.activation_1(self.src_linear(src_word))
         # src_word = self.activation_1(self.src_linear(src_word))
 
@@ -107,9 +113,10 @@ class Transformer(nn.Module):
         #     ,src_key_padding_mask=src_padding_mask,
         #     tgt_mask=trg_mask)
 
-        memory, enc_attn = self.transformer.encoder(
-            embed_src, src_key_padding_mask=src_padding_mask)
-        out, dec_attn = self.transformer.decoder(embed_trg, memory, trg_mask)
+        # memory, enc_attn = self.transformer.encoder(
+        #     embed_src, src_key_padding_mask=src_padding_mask)
+        memory = self.transformer.encoder(embed_src, src_key_padding_mask=src_padding_mask)
+        out = self.transformer.decoder(embed_trg, memory, trg_mask)
 
         # enc_attn_weight = self.encoder_layer.self_attn(
         #     embed_src, embed_src, embed_src, key_padding_mask=src_padding_mask)[1]
@@ -133,5 +140,8 @@ class Transformer(nn.Module):
         # tgt = tgt + self.decoder_layer.dropout3(tgt2)
         # tgt = self.decoder_layer.norm3(tgt)
 
-        out = self.fc_out(out)
-        return (out, enc_attn, dec_attn, memory)
+        out = self.activation_1(self.fc_out1(out))
+        out = self.activation_1(self.fc_out2(out))
+        out = self.fc_out3(out)
+
+        return out, memory
